@@ -4,6 +4,14 @@ from app.database.database import engine
 from app.models.document import Document
 
 from fastapi import FastAPI
+from fastapi import Depends
+from sqlalchemy.orm import Session
+
+from app.database.dependencies import get_db
+from app.schemas.document import DocumentCreate
+from app.schemas.document import DocumentResponse
+
+from app.models.document import Document
 
 app = FastAPI(
     title="Cognitext AI API",
@@ -27,3 +35,20 @@ def health_check():
         "status": "ok",
         "service": "cognitext-api",
     }
+
+
+@app.post("/documents", response_model=DocumentResponse)
+def create_document(
+    document: DocumentCreate,
+    db: Session = Depends(get_db),
+):
+    new_document = Document(
+        filename=document.filename,
+        filepath=document.filepath,
+    )
+
+    db.add(new_document)
+    db.commit()
+    db.refresh(new_document)
+
+    return new_document
