@@ -12,6 +12,10 @@ from app.schemas.document import DocumentCreate
 from app.schemas.document import DocumentResponse
 
 from app.models.document import Document
+from fastapi import UploadFile
+from fastapi import File
+
+import os
 
 app = FastAPI(
     title="Cognitext AI API",
@@ -52,3 +56,25 @@ def create_document(
     db.refresh(new_document)
 
     return new_document
+
+
+@app.post("/documents/upload")
+async def upload_document(
+    file: UploadFile = File(...)
+):
+    upload_dir = "uploads"
+
+    os.makedirs(upload_dir, exist_ok=True)
+
+    file_path = os.path.join(
+        upload_dir,
+        file.filename
+    )
+
+    with open(file_path, "wb") as buffer:
+        buffer.write(await file.read())
+
+    return {
+        "filename": file.filename,
+        "saved_to": file_path
+    }
