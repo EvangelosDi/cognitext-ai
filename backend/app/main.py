@@ -19,6 +19,8 @@ import os
 
 from app.services.pdf_service import extract_text_from_pdf
 
+from app.services.text_splitter import split_text
+
 app = FastAPI(
     title="Cognitext AI API",
     description="Backend API for the Cognitext AI Intelligent Document Intelligence Platform.",
@@ -96,4 +98,27 @@ def extract_document():
 
     return {
         "text": extracted_text[:3000]
+    }
+
+@app.get("/documents/chunks")
+def chunk_document():
+
+    pdf_path = (
+        "uploads/"
+        "Cognitext AI - Project State Summary (June 2026).pdf"
+    )
+
+    extracted_text = extract_text_from_pdf(
+        pdf_path
+    )
+
+    chunks = split_text(
+        extracted_text,
+        chunk_size=800,
+        overlap=100,
+    )
+
+    return {
+        "number_of_chunks": len(chunks),
+        "chunks": chunks[:3],
     }
