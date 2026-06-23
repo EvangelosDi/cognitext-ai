@@ -21,6 +21,8 @@ from app.services.pdf_service import extract_text_from_pdf
 
 from app.services.text_splitter import split_text
 
+from app.services.embedding_service import generate_embedding
+
 app = FastAPI(
     title="Cognitext AI API",
     description="Backend API for the Cognitext AI Intelligent Document Intelligence Platform.",
@@ -121,4 +123,35 @@ def chunk_document():
     return {
         "number_of_chunks": len(chunks),
         "chunks": chunks[:3],
+    }
+
+
+
+@app.get("/documents/embeddings")
+def create_embeddings():
+
+    pdf_path = (
+        "uploads/"
+        "Cognitext AI - Project State Summary (June 2026).pdf"
+    )
+
+    extracted_text = extract_text_from_pdf(
+        pdf_path
+    )
+
+    chunks = split_text(
+        extracted_text,
+        chunk_size=800,
+        overlap=100,
+    )
+
+    embedding = generate_embedding(
+        chunks[0]
+    )
+
+    return {
+        "embedding_dimensions": len(
+            embedding
+        ),
+        "first_10_values": embedding[:10]
     }
