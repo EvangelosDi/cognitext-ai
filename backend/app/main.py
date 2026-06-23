@@ -17,6 +17,8 @@ from fastapi import File
 
 import os
 
+from app.services.pdf_service import extract_text_from_pdf
+
 app = FastAPI(
     title="Cognitext AI API",
     description="Backend API for the Cognitext AI Intelligent Document Intelligence Platform.",
@@ -77,4 +79,21 @@ async def upload_document(
     return {
         "filename": file.filename,
         "saved_to": file_path
+    }
+
+
+@app.get("/documents/extract")
+def extract_document():
+
+    pdf_path = (
+        "uploads/"
+        "Cognitext AI - Project State Summary (June 2026).pdf"
+    )
+
+    extracted_text = extract_text_from_pdf(
+        pdf_path
+    )
+
+    return {
+        "text": extracted_text[:3000]
     }
