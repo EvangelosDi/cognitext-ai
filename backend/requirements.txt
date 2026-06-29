@@ -9,3 +9,7 @@ python-multipart
 pypdf
 
 sentence-transformers
+
+pgvector
+
+

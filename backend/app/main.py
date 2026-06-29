@@ -2,6 +2,7 @@ from app.database.database import Base
 from app.database.database import engine
 
 from app.models.document import Document
+from app.models.document import DocumentChunk
 
 from fastapi import FastAPI
 from fastapi import Depends
@@ -11,7 +12,7 @@ from app.database.dependencies import get_db
 from app.schemas.document import DocumentCreate
 from app.schemas.document import DocumentResponse
 
-from app.models.document import Document
+
 from fastapi import UploadFile
 from fastapi import File
 
@@ -23,11 +24,19 @@ from app.services.text_splitter import split_text
 
 from app.services.embedding_service import generate_embedding
 
+from sqlalchemy import text
+
 app = FastAPI(
     title="Cognitext AI API",
     description="Backend API for the Cognitext AI Intelligent Document Intelligence Platform.",
     version="0.1.0",
 )
+
+
+
+with engine.connect() as connection:
+    connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+    connection.commit()
 
 Base.metadata.create_all(bind=engine)
 
