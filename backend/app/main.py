@@ -26,6 +26,8 @@ from app.services.embedding_service import generate_embedding
 
 from sqlalchemy import text
 
+from app.services.rag_service import build_rag_prompt
+
 app = FastAPI(
     title="Cognitext AI API",
     description="Backend API for the Cognitext AI Intelligent Document Intelligence Platform.",
@@ -163,4 +165,131 @@ def create_embeddings():
             embedding
         ),
         "first_10_values": embedding[:10]
+    }
+
+@app.post("/documents/process")
+def process_document(
+    db: Session = Depends(get_db),
+):
+    pdf_path = (
+        "uploads/"
+        "Cognitext AI - Project State Summary (June 2026).pdf"
+    )
+
+    extracted_text = extract_text_from_pdf(pdf_path)
+
+    chunks = split_text(
+        extracted_text,
+        chunk_size=800,
+        overlap=100,
+    )
+
+    saved_chunks = []
+
+    for chunk in chunks:
+        embedding = generate_embedding(chunk)
+
+        document_chunk = DocumentChunk(
+            document_id=None,
+            chunk_text=chunk,
+            embedding=embedding,
+        )
+
+        db.add(document_chunk)
+        saved_chunks.append(document_chunk)
+
+    db.commit()
+
+    return {
+        "message": "Document processed successfully",
+        "chunks_saved": len(saved_chunks),
+    }
+
+
+@app.get("/documents/search")
+def search_document(
+    query: str,
+    db: Session = Depends(get_db),
+):
+    query_embedding = generate_embedding(query)
+
+    results = (
+        db.query(DocumentChunk)
+        .order_by(DocumentChunk.embedding.cosine_distance(query_embedding))
+        .limit(5)
+        .all()
+    )
+
+    return {
+        "query": query,
+        "results": [
+            {
+                "chunk_id": result.id,
+                "chunk_text": result.chunk_text[:500],
+            }
+            for result in results
+        ],
+    }
+
+@app.get("/documents/context")
+def get_context(
+    query: str,
+    db: Session = Depends(get_db),
+):
+    query_embedding = generate_embedding(query)
+
+    results = (
+        db.query(DocumentChunk)
+        .order_by(
+            DocumentChunk.embedding.cosine_distance(
+                query_embedding
+            )
+        )
+        .limit(5)
+        .all()
+    )
+
+    context = "\n\n".join(
+        chunk.chunk_text
+        for chunk in results
+    )
+
+    return {
+        "query": query,
+        "context": context
+    }
+
+
+@app.get("/documents/ask")
+def ask_document(
+    query: str,
+    db: Session = Depends(get_db),
+):
+    query_embedding = generate_embedding(query)
+
+    results = (
+        db.query(DocumentChunk)
+        .order_by(
+            DocumentChunk.embedding.cosine_distance(
+                query_embedding
+            )
+        )
+        .limit(3)
+        .all()
+    )
+
+    context = "\n\n".join(
+        chunk.chunk_text
+        for chunk in results
+    )
+
+    prompt = build_rag_prompt(
+        question=query,
+        context=context,
+    )
+
+    return {
+        "query": query,
+        "retrieved_chunks": len(results),
+        "rag_prompt": prompt,
     }
