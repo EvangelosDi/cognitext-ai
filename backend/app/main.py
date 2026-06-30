@@ -30,6 +30,9 @@ from app.services.rag_service import build_rag_prompt
 
 from app.services.llm_service import generate_answer_from_context
 
+from app.services.retrieval_service import retrieve_relevant_chunks
+from app.services.retrieval_service import build_context_from_chunks
+
 app = FastAPI(
     title="Cognitext AI API",
     description="Backend API for the Cognitext AI Intelligent Document Intelligence Platform.",
@@ -213,13 +216,10 @@ def search_document(
     query: str,
     db: Session = Depends(get_db),
 ):
-    query_embedding = generate_embedding(query)
-
-    results = (
-        db.query(DocumentChunk)
-        .order_by(DocumentChunk.embedding.cosine_distance(query_embedding))
-        .limit(5)
-        .all()
+    results = retrieve_relevant_chunks(
+        query=query,
+        db=db,
+        limit=5,
     )
 
     return {
@@ -238,29 +238,18 @@ def get_context(
     query: str,
     db: Session = Depends(get_db),
 ):
-    query_embedding = generate_embedding(query)
-
-    results = (
-        db.query(DocumentChunk)
-        .order_by(
-            DocumentChunk.embedding.cosine_distance(
-                query_embedding
-            )
-        )
-        .limit(5)
-        .all()
+    results = retrieve_relevant_chunks(
+        query=query,
+        db=db,
+        limit=3,
     )
 
-    context = "\n\n".join(
-        chunk.chunk_text
-        for chunk in results
-    )
+    context = build_context_from_chunks(results)
 
     return {
         "query": query,
         "context": context
     }
-
 
 @app.get("/documents/ask")
 def ask_document(
