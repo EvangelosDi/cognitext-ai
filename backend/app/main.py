@@ -28,6 +28,8 @@ from sqlalchemy import text
 
 from app.services.rag_service import build_rag_prompt
 
+from app.services.llm_service import generate_answer_from_context
+
 app = FastAPI(
     title="Cognitext AI API",
     description="Backend API for the Cognitext AI Intelligent Document Intelligence Platform.",
@@ -292,4 +294,43 @@ def ask_document(
         "query": query,
         "retrieved_chunks": len(results),
         "rag_prompt": prompt,
+    }
+
+
+@app.get("/documents/ask-preview")
+def ask_document_preview(
+    query: str,
+    db: Session = Depends(get_db),
+):
+    query_embedding = generate_embedding(query)
+
+    results = (
+        db.query(DocumentChunk)
+        .order_by(
+            DocumentChunk.embedding.cosine_distance(
+                query_embedding
+            )
+        )
+        .limit(3)
+        .all()
+    )
+
+    context = "\n\n".join(
+        chunk.chunk_text
+        for chunk in results
+    )
+
+    prompt = build_rag_prompt(
+        question=query,
+        context=context,
+    )
+
+    llm_response = generate_answer_from_context(
+        prompt=prompt,
+    )
+
+    return {
+        "query": query,
+        "retrieved_chunks": len(results),
+        "llm_response": llm_response,
     }
