@@ -82,7 +82,8 @@ def create_document(
 
 @app.post("/documents/upload")
 async def upload_document(
-    file: UploadFile = File(...)
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
 ):
     upload_dir = "uploads"
 
@@ -96,9 +97,42 @@ async def upload_document(
     with open(file_path, "wb") as buffer:
         buffer.write(await file.read())
 
+    new_document = Document(
+        filename=file.filename,
+        filepath=file_path,
+    )
+
+    db.add(new_document)
+    db.commit()
+    db.refresh(new_document)
+
+    extracted_text = extract_text_from_pdf(file_path)
+
+    chunks = split_text(
+        extracted_text,
+        chunk_size=800,
+        overlap=100,
+    )
+
+    for chunk in chunks:
+        embedding = generate_embedding(chunk)
+
+        document_chunk = DocumentChunk(
+            document_id=new_document.id,
+            chunk_text=chunk,
+            embedding=embedding,
+        )
+
+        db.add(document_chunk)
+
+    db.commit()
+
     return {
-        "filename": file.filename,
-        "saved_to": file_path
+        "message": "Document uploaded and processed successfully",
+        "document_id": new_document.id,
+        "filename": new_document.filename,
+        "filepath": new_document.filepath,
+        "chunks_saved": len(chunks),
     }
 
 
