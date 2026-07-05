@@ -251,39 +251,7 @@ def get_context(
         "context": context
     }
 
-@app.get("/documents/ask")
-def ask_document(
-    query: str,
-    db: Session = Depends(get_db),
-):
-    query_embedding = generate_embedding(query)
 
-    results = (
-        db.query(DocumentChunk)
-        .order_by(
-            DocumentChunk.embedding.cosine_distance(
-                query_embedding
-            )
-        )
-        .limit(3)
-        .all()
-    )
-
-    context = "\n\n".join(
-        chunk.chunk_text
-        for chunk in results
-    )
-
-    prompt = build_rag_prompt(
-        question=query,
-        context=context,
-    )
-
-    return {
-        "query": query,
-        "retrieved_chunks": len(results),
-        "rag_prompt": prompt,
-    }
 
 
 @app.get("/documents/ask-preview")
@@ -322,4 +290,39 @@ def ask_document_preview(
         "query": query,
         "retrieved_chunks": len(results),
         "llm_response": llm_response,
+    }
+
+
+@app.get("/documents/ask")
+def ask_document(
+    query: str,
+    db: Session = Depends(get_db),
+):
+    results = retrieve_relevant_chunks(
+        query=query,
+        db=db,
+        limit=3,
+    )
+
+    context = build_context_from_chunks(results)
+
+    prompt = build_rag_prompt(
+        question=query,
+        context=context,
+    )
+
+    llm_response = generate_answer_from_context(
+        prompt=prompt,
+    )
+
+    return {
+        "query": query,
+        "answer": llm_response["answer"],
+        "sources": [
+            {
+                "chunk_id": chunk.id,
+                "chunk_preview": chunk.chunk_text[:300],
+            }
+            for chunk in results
+        ],
     }
