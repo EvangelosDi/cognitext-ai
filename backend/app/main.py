@@ -330,12 +330,15 @@ def ask_document_preview(
 @app.get("/documents/ask")
 def ask_document(
     query: str,
+    document_id: int | None = None,
     db: Session = Depends(get_db),
 ):
+    
     results = retrieve_relevant_chunks(
         query=query,
         db=db,
         limit=3,
+        document_id=document_id,
     )
 
     context = build_context_from_chunks(results)
@@ -351,10 +354,12 @@ def ask_document(
 
     return {
         "query": query,
+        "document_id": document_id,
         "answer": llm_response["answer"],
         "sources": [
             {
                 "chunk_id": chunk.id,
+                "document_id": chunk.document_id,
                 "chunk_preview": chunk.chunk_text[:300],
             }
             for chunk in results
