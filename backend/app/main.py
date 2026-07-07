@@ -365,3 +365,74 @@ def ask_document(
             for chunk in results
         ],
     }
+
+
+@app.get("/documents")
+def list_documents(
+    db: Session = Depends(get_db),
+):
+    documents = db.query(Document).all()
+
+    return [
+        {
+            "id": document.id,
+            "filename": document.filename,
+            "filepath": document.filepath,
+        }
+        for document in documents
+    ]
+
+
+@app.get("/documents/{document_id}")
+def get_document(
+    document_id: int,
+    db: Session = Depends(get_db),
+):
+    document = (
+        db.query(Document)
+        .filter(Document.id == document_id)
+        .first()
+    )
+
+    if document is None:
+        return {
+            "error": "Document not found"
+        }
+
+    return {
+        "id": document.id,
+        "filename": document.filename,
+        "filepath": document.filepath,
+    }
+
+
+@app.delete("/documents/{document_id}")
+def delete_document(
+    document_id: int,
+    db: Session = Depends(get_db),
+):
+    document = (
+        db.query(Document)
+        .filter(Document.id == document_id)
+        .first()
+    )
+
+    if document is None:
+        return {
+            "error": "Document not found"
+        }
+
+    deleted_chunks = (
+        db.query(DocumentChunk)
+        .filter(DocumentChunk.document_id == document_id)
+        .delete()
+    )
+
+    db.delete(document)
+    db.commit()
+
+    return {
+        "message": "Document deleted successfully",
+        "document_id": document_id,
+        "chunks_deleted": deleted_chunks,
+    }
